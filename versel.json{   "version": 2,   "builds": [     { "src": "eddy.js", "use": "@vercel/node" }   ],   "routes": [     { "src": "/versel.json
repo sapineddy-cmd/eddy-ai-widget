@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "eddy.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "eddy.js" }
+  ]
+}
