@@ -1,69 +1,117 @@
 (() => {
-  if (window._eddyWidgetLoaded) return; window._eddyWidgetLoaded = true;
+  // -------- CONFIG MIN --------
+  const API_URL = '/api/eddy'; // même domaine Vercel
+  const TITLE   = 'Pose ta question à 🌲 Eddy';
 
-  const API = 'https://eddy-ai-widget.vercel.app/api/reply'; // adapte si ton domaine Vercel change
-
+  // -------- CSS / UI ----------
   const css = `
-    :root{ --g:#143C26; --z:2147483647; --size:54px; }
-    #eddy-bubble{
-      position:fixed; right:16px; bottom:16px; width:var(--size); height:var(--size);
-      border-radius:50%; background:var(--g); color:#fff; display:flex; align-items:center; justify-content:center;
-      font-size:22px; box-shadow:0 6px 18px rgba(0,0,0,.2); cursor:pointer; z-index:var(--z) !important;
-    }
-    #eddy-panel{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:calc(16px + var(--size) + 10px);
-      width: 92vw; max-width: 560px; height: 38vh; max-height: 380px;
-      background:#fff; color:#111; border:1px solid #e8e8e8; border-radius:12px;
-      box-shadow:0 10px 24px rgba(0,0,0,.20); display:none; flex-direction:column; z-index:var(--z) !important; overflow:hidden;
-    }
-    #eddy-head{ background:var(--g); color:#fff; padding:10px 14px; font-weight:700; display:flex; align-items:center; gap:10px }
-    #eddy-close{ margin-left:auto; background:transparent; border:0; color:#fff; font-size:18px; cursor:pointer }
-    #eddy-body{ padding:12px 14px; flex:1; overflow:auto; line-height:1.5 }
-    #eddy-inputbar{ display:flex; gap:10px; align-items:center; padding:10px; border-top:1px solid #eee; background:#fafafa }
-    #eddy-input{ flex:1; border:none; background:#fff; border-radius:10px; padding:10px 12px; font-size:16px; outline:none }
-    #eddy-send{ width:48px; height:42px; border-radius:10px; border:none; background:var(--g); color:#fff; cursor:pointer }
-    input,textarea{ font-size:16px !important; } /* anti-zoom iOS */
+  :root{
+    --eddy-green:#123f2a;
+    --eddy-shadow:0 10px 30px rgba(0,0,0,.18);
+    --eddy-radius:14px;
+    --eddy-gap:12px;
+    --eddy-size:56px;
+    --eddy-z:2147483000;
+  }
+  #eddy-bubble{
+    position:fixed; right:16px; bottom:16px; width:var(--eddy-size); height:var(--eddy-size);
+    border-radius:50%; background:var(--eddy-green); color:#fff; box-shadow:var(--eddy-shadow);
+    display:flex; align-items:center; justify-content:center; font-size:22px; cursor:pointer;
+    z-index:var(--eddy-z);
+  }
+  #eddy-panel{
+    position:fixed; right:16px; bottom:calc(16px + var(--eddy-size) + 10px);
+    width:92vw; max-width:560px; height:50vh; max-height:520px; min-height:360px;
+    background:#fff; border-radius:var(--eddy-radius); box-shadow:var(--eddy-shadow);
+    overflow:hidden; display:none; flex-direction:column; z-index:var(--eddy-z);
+  }
+  #eddy-head{
+    background:var(--eddy-green); color:#fff; font-weight:700; padding:14px 16px; 
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  #eddy-title{font-size:18px}
+  #eddy-close{cursor:pointer; font-size:20px; line-height:1}
+  #eddy-body{padding:14px; flex:1; overflow:auto; font-size:16px;}
+  .eddy-me{color:#111; margin-top:8px}
+  .eddy-bot{color:#0f5132; font-weight:700; margin-top:8px}
+  #eddy-input{display:flex; gap:10px; align-items:center; padding:12px; border-top:1px solid #e8e8e8;}
+  #eddy-text{flex:1; font-size:16px !important; border:1px solid #ddd; border-radius:10px; padding:10px 12px; outline:none;}
+  #eddy-send{width:48px; height:44px; border-radius:10px; border:none; background:var(--eddy-green); color:#fff; font-size:18px; cursor:pointer}
+  /* empêche le zoom iOS */
+  input, textarea { font-size:16px !important; }
+  @media (max-width:768px){
+    #eddy-panel{width:92vw; right:4vw; height:46vh; bottom:calc(16px + var(--eddy-size) + 10px);}
+  }
   `;
-  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  const style = document.createElement('style'); style.innerHTML = css; document.head.appendChild(style);
 
-  function el(t,a={},c=[]){ const e=document.createElement(t); Object.entries(a).forEach(([k,v])=>k==='style'?Object.assign(e.style,v):e.setAttribute(k,v)); (Array.isArray(c)?c:[c]).filter(Boolean).forEach(x=>e.append(x)); return e; }
+  // -------- DOM ---------------
+  const bubble = document.createElement('div');
+  bubble.id='eddy-bubble';
+  bubble.setAttribute('aria-label','Ouvrir Eddy');
+  bubble.innerHTML='…';
+  document.body.appendChild(bubble);
 
-  const bubble = el('div', { id:'eddy-bubble', title:'Parler à Eddy' }, '💬');
-  const panel  = el('div', { id:'eddy-panel' });
-  const head   = el('div', { id:'eddy-head' }, [
-    'Pose ta question à 🌲 Eddy',
-    el('button', { id:'eddy-close' }, '✕')
-  ]);
-  const body   = el('div', { id:'eddy-body' }, 'Salut 👋 Pose-moi ta question.');
-  const bar    = el('div', { id:'eddy-inputbar' });
-  const input  = el('input', { id:'eddy-input', autocomplete:'off', placeholder:'Écris ici…' });
-  const send   = el('button', { id:'eddy-send' }, '➜');
+  const panel = document.createElement('div');
+  panel.id='eddy-panel';
+  panel.innerHTML = `
+    <div id="eddy-head">
+      <div id="eddy-title">${TITLE}</div>
+      <div id="eddy-close">✕</div>
+    </div>
+    <div id="eddy-body">
+      <div class="eddy-bot">Salut 👋 Pose-moi ta question.</div>
+    </div>
+    <div id="eddy-input">
+      <input id="eddy-text" type="text" placeholder="Écris ici…" autocomplete="off" />
+      <button id="eddy-send">➤</button>
+    </div>`;
+  document.body.appendChild(panel);
 
-  bar.append(input, send);
-  panel.append(head, body, bar);
-  document.addEventListener('DOMContentLoaded', ()=>{ document.body.append(bubble, panel); });
+  // bulle icône après insertion des nodes (emoji stable)
+  bubble.innerHTML = '💬';
 
-  function addLine(who, txt){ const row=el('div',{},[el('b',{},who+': '), txt]); body.append(row); body.scrollTop=body.scrollHeight; }
+  const body  = panel.querySelector('#eddy-body');
+  const text  = panel.querySelector('#eddy-text');
+  const send  = panel.querySelector('#eddy-send');
+  const close = panel.querySelector('#eddy-close');
 
-  const open = () => { panel.style.display='flex'; setTimeout(()=>input.focus(),30); };
-  const close= () => { panel.style.display='none'; };
-  bubble.addEventListener('click', open);
-  head.querySelector('#eddy-close').addEventListener('click', close);
+  // -------- Helpers ----------
+  const open = () => { panel.style.display='flex'; setTimeout(()=>text.focus(),30); };
+  const hide = () => { panel.style.display='none'; };
+  const addUser = (msg) => { body.insertAdjacentHTML('beforeend', <div class="eddy-me"><b>Vous:</b> ${escapeHtml(msg)}</div>); body.scrollTop = body.scrollHeight; };
+  const addBot  = (msg) => { body.insertAdjacentHTML('beforeend', <div class="eddy-bot">Eddy: ${msg}</div>); body.scrollTop = body.scrollHeight; };
 
-  async function ask(){
-    const msg = (input.value||'').trim(); if(!msg) return;
-    input.value=''; addLine('Vous', msg);
-    const thinking = el('div',{},'Eddy réfléchit…'); body.append(thinking); body.scrollTop=body.scrollHeight;
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  async function ask(msg){
+    addUser(msg);
+    addBot('Je réfléchis…');
     try{
-      const r = await fetch(API,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ message: msg }) });
-      if(!r.ok) throw new Error('bad_status_'+r.status);
-      const j = await r.json(); thinking.remove();
-      addLine('Eddy', j.reply || 'OK.');
+      const r = await fetch(API_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: msg })});
+      if(!r.ok) throw new Error('bad status');
+      const data = await r.json();
+      // remplace la dernière bulle "je réfléchis…"
+      const last = body.querySelector('.eddy-bot:last-child');
+      if(last) last.remove();
+      addBot(escapeHtml(data.reply || 'Réponse vide.'));
     }catch(e){
-      thinking.remove(); addLine('Eddy','(réseau capricieux 🌧 — réessaie)');
+      const last = body.querySelector('.eddy-bot:last-child'); if(last) last.remove();
+      addBot('(réseau capricieux 🌧 — réessaye)');
     }
   }
-  send.addEventListener('click', ask);
-  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); ask(); }});
+
+  // -------- Events -----------
+  bubble.addEventListener('click', open);
+  close.addEventListener('click', hide);
+  send.addEventListener('click', () => { const v = text.value.trim(); if(!v) return; text.value=''; ask(v); });
+  text.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); send.click(); }});
+
+  // évite que le panneau “monte” sur iOS quand le clavier s’ouvre : on reste fixé au bas
+  const kbHandler = () => {
+    // recolle le bas après apparition clavier
+    panel.style.bottom = calc(16px + var(--eddy-size) + 10px);
+  };
+  window.addEventListener('focusin', kbHandler);
+  window.addEventListener('resize', kbHandler);
 })();
