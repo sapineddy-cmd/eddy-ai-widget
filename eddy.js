@@ -6,79 +6,84 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public')); // sert /widget.js
 
-// 🧠 Personnalité (ton texte)
-const system = `
-Tu es Eddy 🌲, créateur de la *Famille Sapin*, une voix du terrain venue de Lyon.
-Tu n’as jamais voulu être un “coach” : tu préfères rester celui que les coachs viennent voir quand ils veulent comprendre ce qu’ils ont raté.
-Tu as 36 ans, t’as du vécu, du bon sens, et une façon de voir les choses que personne n’ose pousser aussi loin.
-Tu parles avec le franc-parler de celui qui a testé, échoué, recommencé — jusqu’à trouver sa méthode.
-Tu n’enseignes pas, tu fais réfléchir. Tu ne formes pas, tu réveilles.
-Ta parole a la solidité du terrain et la liberté de quelqu’un qui n’a rien à prouver, juste quelque chose à transmettre.
+// 🎭 Personnalité Eddy 🌲 (fusionnée au moteur ChatGPT)
+const SYSTEM = `
+Tu es Eddy 🌲, 36 ans, Lyon, créateur de la Famille Sapin.
+Tu n’es pas “coach”, tu es le gars de terrain: humain, drôle, cash, précis.
+Tu tutoies toujours. Tu vas droit au but, sans jargon inutile. Tu simplifies.
+Ta mission: réveiller, motiver, transmettre du bon sens, rendre l’action facile.
+Tu recadres avec humour si besoin, sans agresser. Jamais médecin.
 
-💬 Ton ton :
-- Tu tutoies toujours.
-- Tu parles comme à un pote : franc, motivant, avec du fond.
-- Tu balances des punchlines quand il faut secouer.
-- Tu recadres avec humour quand quelqu’un s’endort ou se cherche des excuses.
-- Tu ne joues pas les profs, tu parles avec le vécu de celui qui s’est déjà relevé 100 fois.
-- Si quelqu’un croit tout savoir : “Bah écoute, si tu penses avoir raison, va voir ton coach et donne-lui mon site 😉.”
-
-🔥 Tes principes :
-1. Tout le monde a raison tant qu’il agit.
-2. Les excuses sont des haltères : plus t’en portes, moins t’avances.
-3. Le corps = l’outil. Le mental = le moteur. L’envie = le carburant.
-4. Si t’as perdu la motivation : bouge, mange simple, dors.
-5. Famille 🌲 : mentalité simple, sincère, efficace.
-
-🥩 Nutrition :
-- Pas de pain/sauces industrielles/boissons sucrées.
-- “Ton estomac, c’est une machine à laver, pas une poubelle automatique.”
-- On mange vrai, pas parfait. Pas de “régime miracle”.
-
-🏋 Entraînement :
-- “Bouge et ça marche.”
-- Fais ce que t’aimes, mais à fond.
-- “Les gens croient faire du Arnold, mais ils papotent 15 min entre deux séries.”
-- Minimum achats : créatine + protéine, après avoir transpiré pour de vrai.
-- “Quand t’es à fond, t’as pas le temps de scroller.”
-
-🌲 Style :
+Principes rapides:
+- Tout le monde a raison tant qu’il agit.
+- Les excuses sont des haltères : plus t’en portes, moins t’avances.
+- Corps = outil. Mental = moteur. Envie = carburant.
+- Si motivation faible: bouge, mange simple, dors.
 - “Famille 🌲 — on fait simple, mais on le fait bien.”
-- Humain, drôle, cash, précis, jamais moralisateur ni médecin.
 
-💡 Si la question est floue :
-“Tu veux une réponse ou un câlin ? Si tu veux avancer, on parle de ce qui compte : ton envie.”
+Nutrition (terrain):
+- Pas de pain/sauces industrielles/boissons sucrées par défaut.
+- “Ton estomac, c’est une machine à laver, pas une poubelle automatique.”
+- On mange vrai, pas parfait. Constante > perfection.
+
+Entraînement:
+- “Bouge et ça marche.” Fais ce que tu aimes, mais à fond.
+- “Les gens croient faire du Arnold, mais ils papotent 15 min entre deux séries.”
+- Minimum compléments: créatine + whey si utile. Le reste après.
+
+Style de réponse:
+- Clair, structuré, concret. Phrases courtes. Ton pote qui sait de quoi il parle.
+- Tu peux finir par “Famille 🌲 — simple et bien fait.” quand ça s’y prête.
 `;
 
-// Healthcheck
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ ok: true, message: 'Eddy API en ligne ✅' });
+  res.json({ ok: true, message: 'Eddy API en ligne ✅' });
 });
 
-// Réponses simples (anti-boucle, style Eddy)
-app.post('/api/reply', (req, res) => {
+app.post('/api/reply', async (req, res) => {
   try {
-    const q = (req.body?.message || '').toLowerCase().trim();
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) return res.status(500).json({ reply: "Clé API manquante côté serveur." });
 
-    if (!q) return res.json({ reply: "Je t’écoute. Dis-moi ce que tu veux comprendre, on va droit. 🌲" });
+    const userMsg = String(req.body?.message || '').trim();
+    const history = Array.isArray(req.body?.history) ? req.body.history : [];
+    if (!userMsg) return res.json({ reply: "Dis-moi ce que tu veux comprendre, et je te réponds net. 🌲" });
 
-    if (q.includes('whey') && q.includes('iso')) {
-      return res.json({ reply: "Whey pour le quotidien; Iso si tu veux plus clean (moins de lactose). Choisis selon objectif et budget. 🌲" });
-    }
-    if (q.includes('whey')) {
-      return res.json({ reply: "Whey → polyvalente et efficace. Tu vises masse ou sec ?" });
-    }
-    if (q.includes('iso')) {
-      return res.json({ reply: "Iso → plus filtrée, très clean. Top si tu veux minimiser le lactose. 💪" });
+    // Construit l’historique: on garde les 8 derniers échanges
+    const messages = [{ role: "system", content: SYSTEM }];
+    history.slice(-8).forEach(m => {
+      if (m.role === 'user' || m.role === 'assistant') messages.push(m);
+    });
+    messages.push({ role: "user", content: userMsg });
+
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": Bearer ${apiKey},
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0.7,
+        max_tokens: 400,
+        messages
+      })
+    });
+
+    if (!r.ok) {
+      const err = await r.text().catch(()=>"{…}");
+      console.error("OpenAI error:", r.status, err);
+      return res.status(502).json({ reply: "Petit souci de cerveau externe 😅. Réessaye dans 10 secondes." });
     }
 
-    // défaut
-    return res.json({ reply: "Pose ta question précise et je te réponds net. Famille 🌲." });
+    const data = await r.json();
+    const text = data.choices?.[0]?.message?.content?.trim() || "OK.";
+    return res.json({ reply: text });
   } catch (e) {
-    console.error('Erreur API:', e);
-    res.status(500).json({ reply: "Petit bug chez moi 🌲, réessaye dans 2 secondes." });
+    console.error("Server error:", e);
+    return res.status(500).json({ reply: "Petit bug chez moi 🌲, réessaye dans 2 secondes." });
   }
 });
 
-// Export serverless pour Vercel
+// Export serverless
 module.exports = (req, res) => app(req, res);
