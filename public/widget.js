@@ -1,49 +1,39 @@
-(() => {
-  const chatBubble = document.createElement('div');
-  chatBubble.id = 'eddy-ai-bubble';
-  chatBubble.textContent = '💬';
-  chatBubble.style.cssText = `
-    position: fixed;
-    bottom: 25px;
-    right: 25px;
-    background: #1a3821;
-    color: white;
-    font-size: 28px;
-    border-radius: 50%;
-    width: 60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    z-index: 9999;
-    transition: 0.3s;
-  `;
-  document.body.appendChild(chatBubble);
+<style>
+  /* Réglages rapides – change seulement ces 4 valeurs si besoin */
+  :root{
+    --eddy-color:#1a3821;   /* vert thème */
+    --eddy-size:44px;       /* taille bulle */
+    --eddy-right:14px;      /* marge droite */
+    --eddy-bottom:14px;     /* marge bas */
+  }
 
-  const panel = document.createElement('div');
-  panel.id = 'eddy-panel';
-  panel.innerHTML = `
-    <div style="background:#1a3821;color:white;padding:10px;">Eddy 🌲 - Coach IA</div>
-    <div id="eddy-body" style="height:200px;overflow:auto;padding:10px;">Salut 👋 Pose-moi une question !</div>
-    <input id="eddy-input" type="text" placeholder="Écris ici..." style="width:100%;padding:10px;border:none;border-top:1px solid #ccc;">
-  `;
-  panel.style.cssText = `
-    position: fixed;
-    bottom: 100px;
-    right: 25px;
-    width: 300px;
-    background: white;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    display: none;
-    flex-direction: column;
-    z-index: 9999;
-  `;
-  document.body.appendChild(panel);
+  /* Bulle très discrète */
+  #eddy-bubble{
+    width:var(--eddy-size);
+    height:var(--eddy-size);
+    right:var(--eddy-right)!important;
+    bottom:var(--eddy-bottom)!important;
+    background:var(--eddy-color)!important;
+    font-size:20px!important;
+    box-shadow:0 4px 12px rgba(0,0,0,.18)!important;
+    opacity:.92!important;
+    border: none!important;
+  }
+  #eddy-bubble:hover{ opacity:1; transform:translateY(-1px); }
 
-  chatBubble.onclick = () => {
-    panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
-  };
-})();
+  /* Panneau propre et sobre */
+  #eddy-panel{
+    width:320px; max-width:92vw; height:420px;
+    border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.22);
+    border:1px solid #e8e8e8; overflow:hidden;
+    right:calc(var(--eddy-right) + 0px)!important;
+    bottom:calc(var(--eddy-bottom) + 56px)!important;
+  }
+  /* En-tête/zone de saisie si présents */
+  #eddy-head{ background:var(--eddy-color); color:#fff; font-weight:600; }
+  #eddy-input input{ outline:none; }
+  @media (max-width:768px){
+    :root{ --eddy-size:40px; --eddy-right:12px; --eddy-bottom:12px; }
+    #eddy-panel{ width:92vw; height:70vh; right:4vw!important; bottom:calc(var(--eddy-bottom) + 52px)!important; }
+  }
+</style>
