@@ -1,87 +1,69 @@
-:root{
-  /* espace à laisser pour ne pas manger le header du site */
-  --eddy-header-gap: 76px;      /* ajuste à 64–100px si besoin */
-  --eddy-gap: 12px;              /* marge extérieure */
-  --eddy-size: 56px;             /* diamètre de la bulle */
-  --eddy-right: 14px;            /* position bulle/panneau à droite */
-  --eddy-radius: 14px;           /* arrondi boîte */
-  --kb: 0px;                     /* hauteur clavier (JS mettra à jour) */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-}
+(() => {
+  if (window._eddyWidgetLoaded) return; window._eddyWidgetLoaded = true;
 
-/* Bulle flottante (en bas à droite) */
-#eddy-bubble{
-  position: fixed; z-index: 9999;
-  right: calc(var(--eddy-right));
-  bottom: calc(var(--eddy-gap) + var(--safe-bottom));
-  width: var(--eddy-size); height: var(--eddy-size);
-  border-radius: 50%; display: grid; place-items: center;
-  background:#173e2b; color:#fff; box-shadow: 0 8px 28px rgba(0,0,0,.22);
-  cursor: pointer; user-select:none; -webkit-tap-highlight-color: transparent;
-  transition: transform .2s ease, opacity .2s ease;
-}
-#eddy-bubble:hover{ transform: translateY(-1px); }
+  const API = 'https://eddy-ai-widget.vercel.app/api/reply'; // adapte si ton domaine Vercel change
 
-/* Panneau de dialogue */
-#eddy-panel{
-  position: fixed; z-index: 10000;
-  right: calc(var(--eddy-right));
-  /* colle en bas, mais remonte automatiquement si clavier ouvert */
-  bottom: calc(max(var(--eddy-gap) + var(--safe-bottom), var(--kb) + 8px));
-  width: min(92vw, 720px);
-  /* HAUTEUR : on laisse TOUJOURS visible le titre du site */
-  max-height: calc(100vh - var(--eddy-header-gap) - var(--eddy-gap) - var(--safe-top));
-  border-radius: var(--eddy-radius); overflow: hidden;
-  background:#fff; box-shadow: 0 18px 40px rgba(0,0,0,.25);
-  display: none; flex-direction: column;
-}
+  const css = `
+    :root{ --g:#143C26; --z:2147483647; --size:54px; }
+    #eddy-bubble{
+      position:fixed; right:16px; bottom:16px; width:var(--size); height:var(--size);
+      border-radius:50%; background:var(--g); color:#fff; display:flex; align-items:center; justify-content:center;
+      font-size:22px; box-shadow:0 6px 18px rgba(0,0,0,.2); cursor:pointer; z-index:var(--z) !important;
+    }
+    #eddy-panel{
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:calc(16px + var(--size) + 10px);
+      width: 92vw; max-width: 560px; height: 38vh; max-height: 380px;
+      background:#fff; color:#111; border:1px solid #e8e8e8; border-radius:12px;
+      box-shadow:0 10px 24px rgba(0,0,0,.20); display:none; flex-direction:column; z-index:var(--z) !important; overflow:hidden;
+    }
+    #eddy-head{ background:var(--g); color:#fff; padding:10px 14px; font-weight:700; display:flex; align-items:center; gap:10px }
+    #eddy-close{ margin-left:auto; background:transparent; border:0; color:#fff; font-size:18px; cursor:pointer }
+    #eddy-body{ padding:12px 14px; flex:1; overflow:auto; line-height:1.5 }
+    #eddy-inputbar{ display:flex; gap:10px; align-items:center; padding:10px; border-top:1px solid #eee; background:#fafafa }
+    #eddy-input{ flex:1; border:none; background:#fff; border-radius:10px; padding:10px 12px; font-size:16px; outline:none }
+    #eddy-send{ width:48px; height:42px; border-radius:10px; border:none; background:var(--g); color:#fff; cursor:pointer }
+    input,textarea{ font-size:16px !important; } /* anti-zoom iOS */
+  `;
+  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
-/* Titre du panneau */
-#eddy-head{
-  background:#173e2b; color:#fff; font-weight:700;
-  padding:14px 16px; display:flex; align-items:center; gap:10px;
-  font-size: 18px;
-}
-#eddy-head .eddy-title{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-#eddy-head button{
-  background:transparent; border:0; color:#fff; font-size:22px; line-height:1; cursor:pointer;
-}
+  function el(t,a={},c=[]){ const e=document.createElement(t); Object.entries(a).forEach(([k,v])=>k==='style'?Object.assign(e.style,v):e.setAttribute(k,v)); (Array.isArray(c)?c:[c]).filter(Boolean).forEach(x=>e.append(x)); return e; }
 
-/* Corps de discussion */
-#eddy-body{
-  padding:16px; height: 38vh;      /* hauteur de base */
-  overflow:auto; font-size:16px; line-height:1.45; color:#101010;
-}
+  const bubble = el('div', { id:'eddy-bubble', title:'Parler à Eddy' }, '💬');
+  const panel  = el('div', { id:'eddy-panel' });
+  const head   = el('div', { id:'eddy-head' }, [
+    'Pose ta question à 🌲 Eddy',
+    el('button', { id:'eddy-close' }, '✕')
+  ]);
+  const body   = el('div', { id:'eddy-body' }, 'Salut 👋 Pose-moi ta question.');
+  const bar    = el('div', { id:'eddy-inputbar' });
+  const input  = el('input', { id:'eddy-input', autocomplete:'off', placeholder:'Écris ici…' });
+  const send   = el('button', { id:'eddy-send' }, '➜');
 
-/* Zone de saisie */
-#eddy-input-wrap{
-  display:flex; gap:0; align-items:center; border-top:1px solid #e7e7e7;
-  background:#fff;
-}
-#eddy-input{
-  flex:1; font-size:16px; padding:14px 14px; border:0; outline:none; background:#fff;
-}
-#eddy-send{
-  width:56px; height:56px; border:0; background:#173e2b; color:#fff;
-  font-size:20px; display:grid; place-items:center; cursor:pointer;
-  border-top-left-radius:10px;
-}
+  bar.append(input, send);
+  panel.append(head, body, bar);
+  document.addEventListener('DOMContentLoaded', ()=>{ document.body.append(bubble, panel); });
 
-/* Ajustements mobiles */
-@media (max-width: 768px){
-  #eddy-panel{
-    width: calc(100vw - 2*var(--eddy-gap));
-    right: var(--eddy-gap);
-    /* Quand le clavier s’ouvre, la hauteur suit la viewport sans dépasser le header */
-    max-height: calc(100vh - var(--eddy-header-gap) - var(--safe-top));
+  function addLine(who, txt){ const row=el('div',{},[el('b',{},who+': '), txt]); body.append(row); body.scrollTop=body.scrollHeight; }
+
+  const open = () => { panel.style.display='flex'; setTimeout(()=>input.focus(),30); };
+  const close= () => { panel.style.display='none'; };
+  bubble.addEventListener('click', open);
+  head.querySelector('#eddy-close').addEventListener('click', close);
+
+  async function ask(){
+    const msg = (input.value||'').trim(); if(!msg) return;
+    input.value=''; addLine('Vous', msg);
+    const thinking = el('div',{},'Eddy réfléchit…'); body.append(thinking); body.scrollTop=body.scrollHeight;
+    try{
+      const r = await fetch(API,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ message: msg }) });
+      if(!r.ok) throw new Error('bad_status_'+r.status);
+      const j = await r.json(); thinking.remove();
+      addLine('Eddy', j.reply || 'OK.');
+    }catch(e){
+      thinking.remove(); addLine('Eddy','(réseau capricieux 🌧 — réessaie)');
+    }
   }
-  #eddy-body{
-    /* occupe l’espace restant pour coller au clavier */
-    height: auto;
-    max-height: calc(100vh - var(--eddy-header-gap) - 56px /head/ - 56px /input/ - 2*var(--eddy-gap) - var(--safe-top) - var(--safe-bottom) - var(--kb));
-  }
-}
-
-/* Anti-zoom iOS */
-input, textarea { font-size:16px !important; }
+  send.addEventListener('click', ask);
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); ask(); }});
+})();
