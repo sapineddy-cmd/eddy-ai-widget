@@ -1,69 +1,74 @@
 (() => {
-  if (window._eddyWidgetLoaded) return; window._eddyWidgetLoaded = true;
+  // ====== CONFIG ======
+  const API_URL = "https://eddy-ai-widget.vercel.app/api/eddy"; // ton endpoint Vercel
+  const HEADER_TITLE = "Pose ta question à 🌲 Eddy";
+  const THEME = {
+    green: "#123C21", // vert foncé thème
+    bg: "#ffffff",
+    text: "#0f172a"
+  };
 
-  const API = 'https://eddy-ai-widget.vercel.app/api/reply'; // adapte si ton domaine Vercel change
-
+  // ====== STYLES ======
   const css = `
-    :root{ --g:#143C26; --z:2147483647; --size:54px; }
-    #eddy-bubble{
-      position:fixed; right:16px; bottom:16px; width:var(--size); height:var(--size);
-      border-radius:50%; background:var(--g); color:#fff; display:flex; align-items:center; justify-content:center;
-      font-size:22px; box-shadow:0 6px 18px rgba(0,0,0,.2); cursor:pointer; z-index:var(--z) !important;
-    }
-    #eddy-panel{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:calc(16px + var(--size) + 10px);
-      width: 92vw; max-width: 560px; height: 38vh; max-height: 380px;
-      background:#fff; color:#111; border:1px solid #e8e8e8; border-radius:12px;
-      box-shadow:0 10px 24px rgba(0,0,0,.20); display:none; flex-direction:column; z-index:var(--z) !important; overflow:hidden;
-    }
-    #eddy-head{ background:var(--g); color:#fff; padding:10px 14px; font-weight:700; display:flex; align-items:center; gap:10px }
-    #eddy-close{ margin-left:auto; background:transparent; border:0; color:#fff; font-size:18px; cursor:pointer }
-    #eddy-body{ padding:12px 14px; flex:1; overflow:auto; line-height:1.5 }
-    #eddy-inputbar{ display:flex; gap:10px; align-items:center; padding:10px; border-top:1px solid #eee; background:#fafafa }
-    #eddy-input{ flex:1; border:none; background:#fff; border-radius:10px; padding:10px 12px; font-size:16px; outline:none }
-    #eddy-send{ width:48px; height:42px; border-radius:10px; border:none; background:var(--g); color:#fff; cursor:pointer }
-    input,textarea{ font-size:16px !important; } /* anti-zoom iOS */
-  `;
-  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-
-  function el(t,a={},c=[]){ const e=document.createElement(t); Object.entries(a).forEach(([k,v])=>k==='style'?Object.assign(e.style,v):e.setAttribute(k,v)); (Array.isArray(c)?c:[c]).filter(Boolean).forEach(x=>e.append(x)); return e; }
-
-  const bubble = el('div', { id:'eddy-bubble', title:'Parler à Eddy' }, '💬');
-  const panel  = el('div', { id:'eddy-panel' });
-  const head   = el('div', { id:'eddy-head' }, [
-    'Pose ta question à 🌲 Eddy',
-    el('button', { id:'eddy-close' }, '✕')
-  ]);
-  const body   = el('div', { id:'eddy-body' }, 'Salut 👋 Pose-moi ta question.');
-  const bar    = el('div', { id:'eddy-inputbar' });
-  const input  = el('input', { id:'eddy-input', autocomplete:'off', placeholder:'Écris ici…' });
-  const send   = el('button', { id:'eddy-send' }, '➜');
-
-  bar.append(input, send);
-  panel.append(head, body, bar);
-  document.addEventListener('DOMContentLoaded', ()=>{ document.body.append(bubble, panel); });
-
-  function addLine(who, txt){ const row=el('div',{},[el('b',{},who+': '), txt]); body.append(row); body.scrollTop=body.scrollHeight; }
-
-  const open = () => { panel.style.display='flex'; setTimeout(()=>input.focus(),30); };
-  const close= () => { panel.style.display='none'; };
-  bubble.addEventListener('click', open);
-  head.querySelector('#eddy-close').addEventListener('click', close);
-
-  async function ask(){
-    const msg = (input.value||'').trim(); if(!msg) return;
-    input.value=''; addLine('Vous', msg);
-    const thinking = el('div',{},'Eddy réfléchit…'); body.append(thinking); body.scrollTop=body.scrollHeight;
-    try{
-      const r = await fetch(API,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ message: msg }) });
-      if(!r.ok) throw new Error('bad_status_'+r.status);
-      const j = await r.json(); thinking.remove();
-      addLine('Eddy', j.reply || 'OK.');
-    }catch(e){
-      thinking.remove(); addLine('Eddy','(réseau capricieux 🌧 — réessaie)');
-    }
+  :root{
+    --eddy-size:56px;
+    --eddy-right:16px;
+    --eddy-bottom:16px;
+    --eddy-kb:0px; /* compensation clavier */
+    --eddy-radius:14px;
+    --eddy-shadow:0 10px 30px rgba(0,0,0,.22);
   }
-  send.addEventListener('click', ask);
-  input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); ask(); }});
-})();
+
+  /* Bulle */
+  #eddy-bubble{
+    position:fixed; right:var(--eddy-right); bottom:calc(var(--eddy-bottom) + var(--eddy-kb));
+    width:var(--eddy-size); height:var(--eddy-size);
+    border-radius:999px; background:${THEME.green}; color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:var(--eddy-shadow); cursor:pointer; z-index:2147483000;
+    transition:transform .15s ease, opacity .2s ease;
+  }
+  #eddy-bubble:hover{ transform:translateY(-2px); opacity:.95; }
+  #eddy-bubble svg{ width:26px; height:26px; fill:#fff; }
+
+  /* Panneau */
+  #eddy-panel{
+    position:fixed; right:12px;
+    bottom:calc(var(--eddy-bottom) + var(--eddy-kb));
+    width:min(92vw, 560px);
+    background:${THEME.bg}; color:${THEME.text};
+    border-radius:var(--eddy-radius);
+    box-shadow:var(--eddy-shadow);
+    overflow:hidden; z-index:2147483001; display:none;
+  }
+  /* Taille adaptée mobile et clavier */
+  @media (max-width:768px){
+    #eddy-panel{ left:12px; right:12px; width:auto; }
+  }
+
+  #eddy-head{
+    background:${THEME.green}; color:#fff;
+    font-weight:700; padding:14px 16px; letter-spacing:.2px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  #eddy-close{ cursor:pointer; opacity:.9; }
+  #eddy-close:hover{ opacity:1; }
+
+  #eddy-body{
+    padding:16px; max-height:46vh; overflow:auto; line-height:1.5;
+  }
+  /* Quand clavier iOS s’ouvre: on gagne de la place sans zoom */
+  @media (max-width:768px){
+    #eddy-body{ max-height:58vh; }
+  }
+
+  .eddy-row{ margin:10px 0; }
+  .eddy-me{ color:#0f172a; font-weight:700; }
+  .eddy-bot{ color:${THEME.text}; }
+  .eddy-hint{ color:#64748b; font-style:italic; }
+
+  #eddy-input-bar{
+    display:flex; gap:0; align-items:center; border-top:1px solid #e5e7eb;
+  }
+  #eddy-input{
+    width:100%; border:none; padding:14px 12px; font-size:16px; outline:none;
