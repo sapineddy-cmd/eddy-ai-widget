@@ -1,7 +1,7 @@
 {
-  "version": 2,
+  "version": 3,
   "routes": [
-    { "src": "/widget.js", "dest": "/public/widget.js" },
-    { "src": "/api/eddy",  "dest": "/eddy.js" }
+    { "src": "/api/eddy", "dest": "api/eddy.js" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
