@@ -1,7 +1,8 @@
 {
   "version": 2,
   "builds": [
-    { "src": "eddy.js", "use": "@vercel/node" }
+    { "src": "eddy.js", "use": "@vercel/node" },
+    { "src": "public/widget.js", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/widget.js", "dest": "/public/widget.js" },
