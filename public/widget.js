@@ -1,85 +1,143 @@
-(function () {
-  if (window.__eddyWidgetLoaded) return;
-  window.__eddyWidgetLoaded = true;
+(() => {
+  const API = 'https://eddy-ai-widget.vercel.app/api/reply';
 
-  // ====== Réglages sûrs ======
-  const API_ORIGIN = 'https://eddy-ai-widget.vercel.app'; // fixe, pas de currentScript
-  const COLOR = '#1a3821', SIZE = 44, RIGHT = 14, BOTTOM = 14;
-  const PANEL_W = 300, PANEL_H = 220; // compact + visible
-  const Z = 2147483647;
-
-  // ====== Styles ======
   const css = `
-  #edy-bubble{position:fixed;right:${RIGHT}px;bottom:${BOTTOM}px;width:${SIZE}px;height:${SIZE}px;border-radius:50%;
-    background:${COLOR};color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;
-    z-index:${Z};box-shadow:0 4px 12px rgba(0,0,0,.18)}
-  #edy-panel{position:fixed;left:50%;transform:translateX(-50%);
-    bottom:calc(env(safe-area-inset-bottom,0) + ${BOTTOM + SIZE + 6}px);
-    width:${PANEL_W}px;height:${PANEL_H}px;max-width:92vw;max-height:50vh;background:#fff;border:1px solid #e8e8e8;
-    border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.20);display:none;flex-direction:column;overflow:hidden;z-index:${Z}}
-  #edy-head{background:${COLOR};color:#fff;padding:6px 10px;font-weight:600;display:flex;align-items:center;justify-content:space-between;font-size:15px}
-  #edy-body{flex:1;padding:8px;overflow:auto;font-size:14px;color:#222}
-  #edy-inputbar{display:flex;border-top:1px solid #eee}
-  #edy-txt{flex:1;border:0;padding:10px;font-size:16px;outline:none;-webkit-text-size-adjust:100%}
-  #edy-send{border:0;background:${COLOR};color:#fff;padding:0 12px;font-size:16px;cursor:pointer}
-  @media (max-width:768px){ #edy-panel{width:92vw;height:30vh} }
-  `;
-  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-
-  // ====== UI ======
-  const bubble = document.createElement('div'); bubble.id = 'edy-bubble'; bubble.textContent = '💬';
-  const panel = document.createElement('div'); panel.id = 'edy-panel';
-  panel.innerHTML = `
-    <div id="edy-head">
-      <div>Eddy 🌲 — Pose ta question</div>
-      <button id="edy-x" aria-label="Fermer" style="background:transparent;border:0;color:#fff;font-size:18px;cursor:pointer">×</button>
-    </div>
-    <div id="edy-body">Salut 👋 Pose-moi ta question.</div>
-    <div id="edy-inputbar">
-      <input id="edy-txt" type="text" autocomplete="off" placeholder="Écris ici…">
-      <button id="edy-send">→</button>
-    </div>`;
-  document.body.appendChild(bubble); document.body.appendChild(panel);
-
-  const txt = panel.querySelector('#edy-txt'), send = panel.querySelector('#edy-send'), body = panel.querySelector('#edy-body');
-
-  // Ouverture/fermeture — sans bouger l’écran
-  bubble.addEventListener('click', () => { panel.style.display = 'flex'; txt.blur(); setTimeout(()=>txt.focus(), 0); });
-  panel.querySelector('#edy-x').addEventListener('click', () => { panel.style.display = 'none'; });
-
-  // Utils
-  const esc = s => (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-  const add = (who, html) => { const d=document.createElement('div'); d.style.margin='6px 0';
-    d.innerHTML = (who==='me' ? '<b>Vous:</b> ' : '<span style="color:'+COLOR+'"><b>Eddy:</b></span> ') + html;
-    body.appendChild(d); body.scrollTop=body.scrollHeight; };
-
-  // Historique + envoi
-  window._edy_hist = window._edy_hist || [];
-
-  const fetchWithTimeout = (url, opt={}) => {
-    const ctrl = new AbortController(), t = setTimeout(()=>ctrl.abort(), opt.timeout||9000);
-    return fetch(url, { ...opt, signal: ctrl.signal }).finally(()=>clearTimeout(t));
-  };
-
-  async function sendMsg(){
-    const msg = (txt.value||'').trim(); if(!msg) return;
-    add('me', esc(msg)); txt.value='';
-    const payload = { message: msg, history: window.__edy_hist };
-    const call = () => fetchWithTimeout(API_ORIGIN + '/api/reply', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload), timeout:9000
-    });
-    try{
-      let r = await call(); if(!r.ok){ await new Promise(rz=>setTimeout(rz,700)); r = await call(); }
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const data = await r.json(); const reply = data.reply || 'OK.';
-      add('bot', esc(reply));
-      window._edy_hist.push({role:'user',content:msg}); window._edy_hist.push({role:'assistant',content:reply});
-    }catch(e){
-      const msgErr = /401/.test(e) ? 'clé API (401)' : /404/.test(e) ? 'route introuvable (404)' :
-                     /500/.test(e) ? 'erreur serveur (500)' : 'réseau capricieux';
-      add('bot', (${msgErr} — réessaye));
+    :root{
+      --eddy-green:#143C26; --eddy-bg:#fff; --eddy-shadow:0 10px 30px rgba(0,0,0,.18);
+      --eddy-radius:14px; --eddy-size:54px; --eddy-z:99999;
     }
+    #eddy-bubble{
+      position:fixed; right:16px; bottom:16px; width:var(--eddy-size); height:var(--eddy-size);
+      border-radius:50%; background:var(--eddy-green); color:#fff; display:flex; align-items:center; justify-content:center;
+      box-shadow:var(--eddy-shadow); cursor:pointer; z-index:var(--eddy-z);
+    }
+    #eddy-bubble svg{ width:26px; height:26px; fill:#fff }
+    #eddy-panel{
+      position:fixed; right:12px; bottom:calc(16px + var(--eddy-size) + 10px);
+      width: 90vw; max-width: 580px; height: 44vh; max-height: 420px;
+      background:var(--eddy-bg); color:#111; border-radius:var(--eddy-radius);
+      border:1px solid #e8e8e8; box-shadow:var(--eddy-shadow); overflow:hidden; z-index:var(--eddy-z);
+      display:none; flex-direction:column;
+    }
+    #eddy-head{
+      background:var(--eddy-green); color:#fff; padding:12px 16px; font-weight:700; display:flex; align-items:center; gap:10px;
+    }
+    #eddy-close{ margin-left:auto; cursor:pointer; opacity:.9 }
+    #eddy-body{ padding:14px 16px; flex:1; overflow:auto; line-height:1.5 }
+    #eddy-body b{ color:#1a3821 }
+    #eddy-inputbar{ display:flex; gap:10px; align-items:center; padding:10px; border-top:1px solid #eee; background:#fafafa }
+    #eddy-input{
+      flex:1; border:none; background:#fff; border-radius:10px; padding:10px 12px; font-size:16px; outline:none;
+    }
+    #eddy-send{
+      width:48px; height:42px; border-radius:10px; border:none; background:var(--eddy-green); color:#fff; cursor:pointer;
+    }
+    @media (max-width:768px){
+      #eddy-panel{ width:94vw; right:3vw; height:38vh; max-height:360px; }
+      :root{ --eddy-size:52px; }
+    }
+    /* Empêcher zoom iOS quand on tape */
+    input, textarea { font-size:16px !important; }
+  `;
+
+  function el(tag, attrs={}, children=[]) {
+    const e = document.createElement(tag);
+    Object.entries(attrs).forEach(([k,v]) => k==='style' ? Object.assign(e.style, v) : e.setAttribute(k,v));
+    (Array.isArray(children)?children:[children]).filter(Boolean).forEach(c => e.append(c));
+    return e;
   }
-  txt.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendMsg(); }});
-  send.addEventListener('click', sendMsg);
+
+  function ui() {
+    if (document.getElementById('eddy-bubble')) return;
+
+    // styles
+    document.head.appendChild(el('style', {}, css));
+
+    // bubble
+    const bubble = el('div', { id:'eddy-bubble', title:'Parler à Eddy' },
+      el('svg', { viewBox:'0 0 24 24' }, [
+        el('path', { d:'M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z' })
+      ])
+    );
+
+    // panel
+    const panel = el('div', { id:'eddy-panel' });
+
+    // --- Titre corrigé ---
+    const head  = el('div', { id:'eddy-head' }, [
+      'Pose ta question à 🌲 Eddy',
+      el('span', { id:'eddy-close' }, '✕')
+    ]);
+    // ----------------------
+
+    const body  = el('div', { id:'eddy-body' });
+    const bar   = el('div', { id:'eddy-inputbar' });
+    const input = el('input', { id:'eddy-input', placeholder:'Écris ici…', autocomplete:'off' });
+    const send  = el('button', { id:'eddy-send' }, '➜');
+
+    bar.append(input, send);
+    panel.append(head, body, bar);
+    document.body.append(bubble, panel);
+
+    // intro
+    body.append(el('div', {}, 'Salut 👋 Pose-moi ta question.'));
+    const history = []; // {role:'user'|'assistant', content:''}
+
+    const open   = () => { panel.style.display='flex'; setTimeout(()=>input.focus(),30); };
+    const close  = () => { panel.style.display='none'; };
+    const toggle = () => panel.style.display==='flex' ? close() : open();
+
+    bubble.addEventListener('click', toggle);
+    head.querySelector('#eddy-close').addEventListener('click', close);
+
+    function addLine(who, text) {
+      const row = el('div', {}, [ el('b', {}, who+': '), text ]);
+      body.append(row);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    async function ask() {
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      addLine('Vous', msg);
+      history.push({ role:'user', content: msg });
+
+      const thinking = el('div', {}, 'Eddy réfléchit…');
+      body.append(thinking); body.scrollTop = body.scrollHeight;
+
+      try {
+        const r = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg, history })
+        });
+        if (!r.ok) throw new Error('bad_status_'+r.status);
+        const j = await r.json();
+        thinking.remove();
+        const rep = (j && j.reply) ? j.reply : 'OK.';
+        addLine('Eddy', rep);
+        history.push({ role:'assistant', content: rep });
+      } catch (e) {
+        thinking.remove();
+        addLine('Eddy', '(réseau capricieux 🌧 — réessaie)');
+      }
+    }
+
+    send.addEventListener('click', ask);
+    input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') ask(); });
+
+    // iOS clavier : garder le panneau visible, sans zoom
+    const fixViewport = () => {
+      panel.style.bottom = calc(16px + var(--eddy-size) + 10px);
+    };
+    window.addEventListener('resize', fixViewport);
+    fixViewport();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ui);
+  } else {
+    ui();
+  }
 })();
