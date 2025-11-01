@@ -1,11 +1,9 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "eddy.js", "use": "@vercel/node" },
-    { "src": "public/widget.js", "use": "@vercel/static" }
-  ],
+  "builds": [{ "src": "eddy.js", "use": "@vercel/node" }],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/eddy.js" },
-    { "src": "/widget.js", "dest": "/public/widget.js" }
+    { "src": "/widget.js", "dest": "/public/widget.js" },
+    { "src": "/api/health", "dest": "/eddy.js" },
+    { "src": "/api/reply",  "dest": "/eddy.js" }
   ]
 }
